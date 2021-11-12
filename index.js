@@ -22,6 +22,10 @@ async function run() {
 
     const database = client.db("eye_goggles");
     const sunglassCollection = database.collection("sunglasses");
+    const userCollection = database.collection("users")
+    const orderCollection = database.collection("orders");
+
+
 
     app.get('/sunglasses', async(req,res) => {
       const cursor = sunglassCollection.find({})
@@ -36,6 +40,42 @@ async function run() {
         res.send(result)
     });
 
+    app.post('/users', async(req, res) => {
+      const doc = req.body;
+      const result = await userCollection.insertOne(doc);
+      console.log(result)
+      res.send(result)
+    })
+
+
+    app.post('/orders', async(req, res) => {
+      const doc = req.body;
+      const result = await orderCollection.insertOne(doc);
+      res.send(result)
+    });
+
+    app.get('/orders', async(req,res) => {
+      const cursor = orderCollection.find({});
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get('/orders/:email', async(req,res) => {
+      const email = req.params.email;
+      const query = {email: email};
+      const result = await orderCollection.find(query).toArray();
+      console.log(result)
+      res.send(result);
+    });
+
+    app.delete('/orders/:id', async(req, res) => {
+      const id = req.params.id;
+      const query = {_id: ObjectId(id)};
+      const result = await orderCollection.deleteOne(query);
+      res.send(result)
+    });
+
+    
   }
   finally{
 
