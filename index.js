@@ -45,8 +45,41 @@ async function run() {
       const result = await userCollection.insertOne(doc);
       console.log(result)
       res.send(result)
-    })
+    });
 
+
+    app.put('/users', async(req, res) => {
+      const user = req.body;
+      const filter ={email: user.email};
+      const options = { upsert: true };
+      const updateDoc ={$set: user};
+      const result = await userCollection.updateOne(filter, updateDoc, options);
+      console.log(result)
+      res.send(result);
+    });
+
+
+    app.put('/users/admin', async(req, res) => {
+      const user = req.body;
+      console.log(user);
+      const filter = {email: user.email};
+      const updateDoc = {$set: {role: "admin"}};
+      const result = await userCollection.updateOne(filter, updateDoc);
+      console.log(result)
+      res.send(result);
+    });
+
+    app.get('/users/:email', async(req,res) => {
+      const email = req.params.email;
+      console.log(email)
+      const query = {email: email};
+      const result = await userCollection.findOne(query);
+      let isAdmin = false;
+      if (result.role === "admin") {
+        isAdmin = true;
+      }
+      res.send({admin: isAdmin})
+    });
 
     app.post('/orders', async(req, res) => {
       const doc = req.body;
@@ -78,7 +111,7 @@ async function run() {
     
   }
   finally{
-
+    // await client.close();
   }
   
 }
