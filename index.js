@@ -22,8 +22,9 @@ async function run() {
 
     const database = client.db("eye_goggles");
     const sunglassCollection = database.collection("sunglasses");
-    const userCollection = database.collection("users")
+    const userCollection = database.collection("users");
     const orderCollection = database.collection("orders");
+    const reviewCollection = database.collection("reviews")
 
 
 
@@ -108,7 +109,17 @@ async function run() {
       res.send(result)
     });
 
-    
+    app.post('/reviews', async(req, res) => {
+      const doc = req.body;
+      const result = await reviewCollection.insertOne(doc);
+      res.send(result);
+    });
+
+    app.get('/reviews', async(req, res) => {
+      const cursor = reviewCollection.find({});
+      const result = await cursor.toArray();
+      res.send(result);
+    })
   }
   finally{
     // await client.close();
