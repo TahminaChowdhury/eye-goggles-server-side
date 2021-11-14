@@ -48,6 +48,14 @@ async function run() {
       res.send(result)
     });
 
+    
+    app.delete('/sunglasses/:id', async(req, res) => {
+      const id = req.params.id;
+      const query = {_id: ObjectId(id)};
+      const result = await sunglassCollection.deleteOne(query);
+      res.send(result)
+    });
+
     app.post('/users', async(req, res) => {
       const doc = req.body;
       const result = await userCollection.insertOne(doc);
