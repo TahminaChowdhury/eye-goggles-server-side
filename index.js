@@ -41,6 +41,13 @@ async function run() {
         res.send(result)
     });
 
+    app.post('/sunglasses', async(req, res) => {
+      const doc = req.body;
+      const result = await sunglassCollection.insertOne(doc);
+      console.log(result)
+      res.send(result)
+    });
+
     app.post('/users', async(req, res) => {
       const doc = req.body;
       const result = await userCollection.insertOne(doc);
@@ -119,7 +126,19 @@ async function run() {
       const cursor = reviewCollection.find({});
       const result = await cursor.toArray();
       res.send(result);
-    })
+    });
+
+    app.put("/updatestatus/:id",async(req,res) => {
+      const id = req.params.id;
+        const updateStatus = req.body;
+        const filter = { _id: ObjectId(id) };
+        const result = await orderCollection.updateOne(filter, {
+          $set: {
+            status: updateStatus.status,
+          },
+        })
+        res.json(result)
+    });
   }
   finally{
     // await client.close();
