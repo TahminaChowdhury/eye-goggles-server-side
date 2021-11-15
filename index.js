@@ -48,11 +48,12 @@ async function run() {
       res.send(result)
     });
 
-    
+
     app.delete('/sunglasses/:id', async(req, res) => {
       const id = req.params.id;
       const query = {_id: ObjectId(id)};
       const result = await sunglassCollection.deleteOne(query);
+      console.log(result)
       res.send(result)
     });
 
@@ -136,7 +137,7 @@ async function run() {
       res.send(result);
     });
 
-    app.put("/updatestatus/:id",async(req,res) => {
+    app.put("/orders/:id",async(req,res) => {
       const id = req.params.id;
         const updateStatus = req.body;
         const filter = { _id: ObjectId(id) };
