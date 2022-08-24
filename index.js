@@ -28,22 +28,11 @@ async function run() {
     const orderCollection = database.collection('orders');
     const reviewCollection = database.collection('reviews');
 
-    // Get products
+    // get products
     app.get('/sunglasses', async (req, res) => {
       const cursor = sunglassCollection.find({});
       const result = await cursor.toArray();
       res.send(result);
-    });
-
-    // Search Products
-    app.get('/sunglasses/:key', async (req, res) => {
-      let regex = new RegExp(req.params.key, 'i');
-      const result = await sunglassCollection
-        .find({
-          $or: [{ name: regex }, { brandName: regex }],
-        })
-        .toArray();
-      res.status(200).send(result);
     });
 
     // get products by id
