@@ -5,6 +5,7 @@ const { MongoClient } = require('mongodb');
 const ObjectId = require('mongodb').ObjectId;
 require('dotenv').config();
 const port = process.env.PORT || 5000;
+const stripe = require('stripe')(process.env.STRIPE_KEY);
 
 // middleware
 app.use(cors());
@@ -24,7 +25,7 @@ async function run() {
 
     const database = client.db('eye_goggles');
     const sunglassCollection = database.collection('sunglasses');
-    const userCollection = database.collection('users');
+    const usersCollection = database.collection('users');
     const orderCollection = database.collection('orders');
     const reviewCollection = database.collection('reviews');
 
@@ -36,8 +37,8 @@ async function run() {
     });
 
     // get products by id
-    app.get('/sunglasses/:sunglassId', async (req, res) => {
-      const id = req.params.sunglassId;
+    app.get('/sunglasses/:id', async (req, res) => {
+      const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await sunglassCollection.findOne(query);
       res.send(result);
@@ -80,8 +81,14 @@ async function run() {
     // post users
     app.post('/users', async (req, res) => {
       const doc = req.body;
-      const result = await userCollection.insertOne(doc);
-      console.log(result);
+      const result = await usersCollection.insertOne(doc);
+      res.send(result);
+    });
+
+    // get users
+    app.get('/users', async (req, res) => {
+      const cursor = usersCollection.find({});
+      const result = await cursor.toArray();
       res.send(result);
     });
 
@@ -91,28 +98,36 @@ async function run() {
       const filter = { email: user.email };
       const options = { upsert: true };
       const updateDoc = { $set: user };
-      const result = await userCollection.updateOne(filter, updateDoc, options);
-      console.log(result);
+      const result = await usersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
       res.send(result);
     });
 
     // set admin role
     app.put('/users/admin', async (req, res) => {
       const user = req.body;
-      console.log(user);
       const filter = { email: user.email };
       const updateDoc = { $set: { role: 'admin' } };
-      const result = await userCollection.updateOne(filter, updateDoc);
-      console.log(result);
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+
+    // get user by email
+    app.get('/users/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
       res.send(result);
     });
 
     // admin
     app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
-      console.log(email);
       const query = { email: email };
-      const result = await userCollection.findOne(query);
+      const result = await usersCollection.findOne(query);
       let isAdmin = false;
       if (result.role === 'admin') {
         isAdmin = true;
@@ -176,6 +191,33 @@ async function run() {
         },
       });
       res.json(result);
+    });
+
+    app.post('/create-checkout-session', async (req, res) => {
+      const line_items = req.body.cartItems.map((item) => {
+        return {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: item.name,
+              metadata: {
+                id: item.id,
+              },
+            },
+            unit_amount: item.price * 100,
+          },
+          quantity: item.qty,
+        };
+      });
+
+      const session = await stripe.checkout.sessions.create({
+        line_items,
+        mode: 'payment',
+        success_url: 'https://eye-goggles.up.railway.app/checkout-success',
+        cancel_url: 'https://eye-goggles.up.railway.app/checkout-cancel',
+      });
+
+      res.send({ url: session.url });
     });
   } finally {
     // await client.close();
