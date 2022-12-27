@@ -213,8 +213,8 @@ async function run() {
       const session = await stripe.checkout.sessions.create({
         line_items,
         mode: 'payment',
-        success_url: 'https://eye-goggles.up.railway.app/checkout-success',
-        cancel_url: 'https://eye-goggles.up.railway.app/checkout-cancel',
+        success_url: 'https://eye-goggles.onrender.com/checkout-success',
+        cancel_url: 'https://eye-goggles.onrender.com/checkout-cancel',
       });
 
       res.send({ url: session.url });
