@@ -7,6 +7,7 @@ require('dotenv').config();
 const port = process.env.PORT || 5000;
 const stripe = require('stripe')(process.env.STRIPE_KEY);
 
+
 // middleware
 app.use(cors());
 app.use(express.json());
@@ -200,6 +201,7 @@ async function run() {
             currency: 'usd',
             product_data: {
               name: item.name,
+              images:[item.image],
               metadata: {
                 id: item.id,
               },
@@ -207,10 +209,29 @@ async function run() {
             unit_amount: item.price * 100,
           },
           quantity: item.qty,
+          tax_rates: [process.env.STRIPE_TAX_RATE_ID],
         };
       });
 
       const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        shipping_address_collection: {allowed_countries: ['US', 'CA', 'BD']},
+        shipping_options: [
+          {
+            shipping_rate_data: {
+              type: 'fixed_amount',
+              fixed_amount: {amount: 0, currency: 'usd'},
+              display_name: 'Free shipping',
+              delivery_estimate: {
+                minimum: {unit: 'business_day', value: 5},
+                maximum: {unit: 'business_day', value: 7},
+              },
+            },
+          },
+        ],
+        phone_number_collection: {
+          enabled: true,
+        },
         line_items,
         mode: 'payment',
         success_url: 'https://eye-goggles.web.app/checkout-success',
