@@ -5,12 +5,23 @@ const { MongoClient } = require('mongodb');
 const ObjectId = require('mongodb').ObjectId;
 require('dotenv').config();
 const port = process.env.PORT || 5000;
-const stripe = require('stripe')(process.env.STRIPE_KEY);
-
 
 // middleware
 app.use(cors());
-app.use(express.json());
+app.use(
+  express.json({
+    limit: "5mb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  })
+);
+
+
+
+// Stripe
+const stripe = require('stripe')(process.env.STRIPE_KEY);
+const endpointSecret = process.env.WEBHOOK_ENDPOINT_SECRET;
 
 // Connect to mongodb
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ckcl0.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
@@ -195,13 +206,21 @@ async function run() {
     });
 
     app.post('/create-checkout-session', async (req, res) => {
+      console.log(req.body.userId);
+      const customer = await stripe.customers.create({
+        metadata: {
+          userId: req.body.userId,
+          cart: JSON.stringify(req.body.cartItems),
+        },
+      });
+      
       const line_items = req.body.cartItems.map((item) => {
         return {
           price_data: {
             currency: 'usd',
             product_data: {
               name: item.name,
-              images:[item.image],
+              images: [item.image],
               metadata: {
                 id: item.id,
               },
@@ -215,16 +234,16 @@ async function run() {
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
-        shipping_address_collection: {allowed_countries: ['US', 'CA', 'BD']},
+        shipping_address_collection: { allowed_countries: ['US', 'CA', 'BD'] },
         shipping_options: [
           {
             shipping_rate_data: {
               type: 'fixed_amount',
-              fixed_amount: {amount: 0, currency: 'usd'},
+              fixed_amount: { amount: 0, currency: 'usd' },
               display_name: 'Free shipping',
               delivery_estimate: {
-                minimum: {unit: 'business_day', value: 5},
-                maximum: {unit: 'business_day', value: 7},
+                minimum: { unit: 'business_day', value: 5 },
+                maximum: { unit: 'business_day', value: 7 },
               },
             },
           },
@@ -232,14 +251,60 @@ async function run() {
         phone_number_collection: {
           enabled: true,
         },
+        customer: customer.id,
         line_items,
         mode: 'payment',
-        success_url: 'https://eye-goggles.web.app/checkout-success',
-        cancel_url: 'https://eye-goggles.web.app/checkout-cancel',
+        success_url: 'http://localhost:5000/checkout-success',
+        cancel_url: 'http://localhost:5000/checkout-cancel',
       });
 
       res.send({ url: session.url });
     });
+
+    app.post(
+      '/webhook',
+      express.raw({ type: 'application/json' }),
+      (req, res) => {
+        const sig = req.headers['stripe-signature'];
+
+        let data;
+        let eventType;
+
+        if (endpointSecret) {
+          let event;
+          try {
+            event = stripe.webhooks.constructEvent(
+              req.rawBody,
+              sig,
+              endpointSecret
+            );
+            console.log('verified');
+          } catch (err) {
+            console.log(err.message);
+            res.status(400).send(`Webhook Error: ${err.message}`);
+            return;
+          }
+          data = event.data.object;
+          eventType = event.type;
+        } else {
+          data = req.body.data.object;
+          eventType = req.body.type;
+        }
+
+        if (eventType == 'checkout.session.completed') {
+          stripe.customers
+            .retrieve(data.customer)
+            .then((customer) => {
+              console.log("customer:",customer);
+              console.log('data:', data);
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }
+        res.send();
+      }
+    );
   } finally {
     // await client.close();
   }
