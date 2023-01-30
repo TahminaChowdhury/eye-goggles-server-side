@@ -10,14 +10,12 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(
   express.json({
-    limit: "5mb",
+    limit: '5mb',
     verify: (req, res, buf) => {
       req.rawBody = buf.toString();
     },
   })
 );
-
-
 
 // Stripe
 const stripe = require('stripe')(process.env.STRIPE_KEY);
@@ -147,13 +145,6 @@ async function run() {
       res.send({ admin: isAdmin });
     });
 
-    // post orders
-    app.post('/orders', async (req, res) => {
-      const doc = req.body;
-      const result = await orderCollection.insertOne(doc);
-      res.send(result);
-    });
-
     // get orders
     app.get('/orders', async (req, res) => {
       const cursor = orderCollection.find({});
@@ -206,14 +197,12 @@ async function run() {
     });
 
     app.post('/create-checkout-session', async (req, res) => {
-      console.log(req.body.userId);
       const customer = await stripe.customers.create({
         metadata: {
           userId: req.body.userId,
-          cart: JSON.stringify(req.body.cartItems),
         },
       });
-      
+
       const line_items = req.body.cartItems.map((item) => {
         return {
           price_data: {
@@ -254,11 +243,11 @@ async function run() {
         customer: customer.id,
         line_items,
         mode: 'payment',
-        success_url: 'http://localhost:5000/checkout-success',
-        cancel_url: 'http://localhost:5000/checkout-cancel',
+        success_url: 'https://eye-goggles.web.app/checkout-success',
+        cancel_url: 'https://eye-goggles.web.app/checkout-cancel',
       });
 
-      res.send({ url: session.url });
+      res.send({ url: session.url, message: 'payment_success' });
     });
 
     app.post(
@@ -295,8 +284,9 @@ async function run() {
           stripe.customers
             .retrieve(data.customer)
             .then((customer) => {
-              console.log("customer:",customer);
+              console.log('customer:', customer);
               console.log('data:', data);
+              createOrder(customer, data);
             })
             .catch((err) => {
               console.log(err);
@@ -305,6 +295,29 @@ async function run() {
         res.send();
       }
     );
+
+    const createOrder =   async (customer, data) => { 
+      let newOrder = {
+        userId: customer.metadata.userId,
+        userEmail: customer.email,
+        customerId: data.customer,
+        paymentIntentId: data.payment_intent,
+        subtotal: data.amount_subtotal,
+        total: data.customer_total,
+        shipping: data.customer_details,
+        payment_status: data.payment_status,
+        delivery_status: 'pending',
+      };
+      try {
+        app.post('/orders', async (req, res) => {
+          const result = await orderCollection.insertOne(newOrder);
+          console.log("order:",result)
+          res.send(result);
+        });
+      } catch (error) {
+        console.log(error.message)
+      }
+    };
   } finally {
     // await client.close();
   }
